@@ -96,8 +96,7 @@ func isSignatureValid(body []byte, requestHeaders http.Header) bool {
 	// Get and parse HMAC signature from header
 	providedHmacString := requestHeaders.Get("X-Hub-Signature-256")
 	providedHmacString, _ = strings.CutPrefix(providedHmacString, "sha256=")
-	var providedHmacBytes []byte
-	_, err := hex.Decode(providedHmacBytes, []byte(providedHmacString))
+	providedHmacBytes, err := hex.DecodeString(providedHmacString)
 	if err != nil {
 		log.Println("isSignatureValid: Couldn't decode X-Hub-Signature-256 header as hex:", err)
 		return false
