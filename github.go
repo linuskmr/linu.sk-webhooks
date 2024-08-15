@@ -81,6 +81,12 @@ func Github(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	if _, err := os.Stat(path.Join(workdir, "Makefile")); errors.Is(err, os.ErrNotExist) {
+		log.Printf("No Makefile found in folder %s. Therefore don't gonna build anything, but is pulled/is up-to-date :)\n", workdir)
+		return
+	}
+
+
 	// Build repository
 	cmd = exec.Command("make", "build")
 	cmd.Dir = workdir
