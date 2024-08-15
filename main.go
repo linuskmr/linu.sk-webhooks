@@ -11,7 +11,14 @@ func main() {
 	http.HandleFunc("/", handleIndex)
 	http.HandleFunc("/github", Github)
 	log.Println("Listening on", addr)
-	http.ListenAndServe(addr, nil)
+	http.ListenAndServe(addr, globalMiddleware(http.DefaultServeMux))
+}
+
+func globalMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Server", "net/http go")
+		next.ServeHTTP(w, r)
+	})
 }
 
 func handleIndex(w http.ResponseWriter, req *http.Request) {
