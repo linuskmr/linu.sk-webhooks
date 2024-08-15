@@ -119,8 +119,7 @@ func isSignatureValid(body []byte, requestHeaders http.Header) bool {
 
 func isValidRepositoryName(str string) bool {
 	// Only ASCII letters, digits, and '.' are allowed
-	// In Rust: s.chars().all(char::is_alphanumeric)
-	for chr := range str {
+	for _, chr := range str {
 		isAsciiLowercaseLetter := chr >= 'a' && chr <= 'z'
 		isAsciiUppercaseLetter := chr >= 'A' && chr <= 'Z'
 		isDigit := chr >= '0' && chr <= '9'
