@@ -77,6 +77,7 @@ func Github(w http.ResponseWriter, req *http.Request) {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Printf("Failed pulling repository %s: %s %s\n", workdir, string(output), err)
+		log.Println("Note: If this results in the error 'detected dubious ownership in repository', there is a conflict between the owner of the repository and the user running 'git pull' through this service. To fix this, transfer the ownership of the repository to the user using 'sudo chown -R www-data .' and 'git config --global --add safe.directory REPO_PATH' to also let others user do a 'git pull' there.")
 		http.Error(w, "Failed to pull repository", http.StatusInternalServerError)
 		return
 	}
