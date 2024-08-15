@@ -130,8 +130,8 @@ func isValidRepositoryName(str string) bool {
 		isAsciiLowercaseLetter := chr >= 'a' && chr <= 'z'
 		isAsciiUppercaseLetter := chr >= 'A' && chr <= 'Z'
 		isDigit := chr >= '0' && chr <= '9'
-		isDot := chr == '.'
-		if !isAsciiLowercaseLetter && !isAsciiUppercaseLetter && !isDigit && !isDot {
+		isAllowedSpecial := chr == '.' || chr == '-' || chr == '_'
+		if !isAsciiLowercaseLetter && !isAsciiUppercaseLetter && !isDigit && !isAllowedSpecial {
 			return false
 		}
 	}
