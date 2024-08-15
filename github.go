@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -49,7 +50,7 @@ func Github(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Try our best to avoid path traversal attacks
+	// Do our best to avoid path traversal attacks (although signed from Github; you never know)
 	if !isValidRepositoryName(jsonBody.Repository.Name) {
 		log.Println("Invalid repository name:", jsonBody.Repository.Name)
 		http.Error(w, "Invalid repository name", http.StatusBadRequest)
@@ -58,11 +59,11 @@ func Github(w http.ResponseWriter, req *http.Request) {
 
 	folderName := jsonBody.Repository.Name
 	suffix := ".linu.sk"
-	if strings.HasSuffix(folderName, suffix) {
+	if !strings.HasSuffix(folderName, suffix) {
 		folderName += suffix
 	}
 
-	// Try our best to avoid path traversal attacks 2.0
+	// Do our best to avoid path traversal attacks 2.0 (from signed from Github; you never know)
 	parentWorkdir := "/var/www/"
 	workdir := path.Clean(path.Join(parentWorkdir, folderName))
 	if !strings.HasPrefix(workdir, parentWorkdir) || workdir == parentWorkdir {
