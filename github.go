@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"strings"
 )
 
@@ -22,12 +23,11 @@ type GitHubWebhookPayload struct {
 
 // GitHubWebhookRepository is a part of [GitHubWebhookPayload]
 type GitHubWebhookRepository struct {
-	FullName string `json:"full_name"`
+	Name string `json:"name"`
 }
 
 // Github handles webhooks from GitHub.
 func Github(w http.ResponseWriter, req *http.Request) {
-	// Read the whole request body
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
 		log.Println("Error reading request body:", err)
@@ -35,13 +35,6 @@ func Github(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !isSignatureValid(body, req.Header) {
-		log.Println("Invalid HMAC signature provided in X-Hub-Signature-256 header")
-		http.Error(w, "Invalid HMAC signature provided in X-Hub-Signature-256 header", http.StatusBadRequest)
-		return
-	}
-
-	// Decode body as JSON
 	var jsonBody GitHubWebhookPayload
 	err = json.Unmarshal(body, &jsonBody)
 	if err != nil {
@@ -50,44 +43,55 @@ func Github(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	switch jsonBody.Repository.FullName {
-	case "linuskmr/linu.sk":
-		wwwLinusk(w)
-	default:
-		log.Println("Received push event for unknown repository:", jsonBody.Repository.FullName)
-		http.Error(w, "Received push event for unknown repository", http.StatusBadRequest)
+	if !isSignatureValid(body, req.Header) {
+		log.Printf("Invalid HMAC signature provided in X-Hub-Signature-256 header for repository %s", jsonBody.Repository.Name)
+		http.Error(w, "Invalid HMAC signature provided in X-Hub-Signature-256 header", http.StatusForbidden)
 		return
 	}
-}
 
-// wwwLinusk updates and builds the linu.sk website.
-func wwwLinusk(w http.ResponseWriter) {
-	// Pull repository
-	// Note: If this results in the error 'detected dubious ownership in repository',
-	// there is a conflict between the owner of the repository and the user running 'git pull'
-	// through this service. To fix this, transfer the ownership of the repository to the user
-	// using 'sudo chown -R www-data .' and 'git config --global --add safe.directory REPO_PATH'
-	// to also let others user do a 'git pull' there.
-	workdir := "/var/www/www.linu.sk"
+	// Try our best to avoid path traversal attacks
+	if !isValidRepositoryName(jsonBody.Repository.Name) {
+		log.Println("Invalid repository name:", jsonBody.Repository.Name)
+		http.Error(w, "Invalid repository name", http.StatusBadRequest)
+		return
+	}
+
+	folderName := jsonBody.Repository.Name
+	suffix := ".linu.sk"
+	if strings.HasSuffix(folderName, suffix) {
+		folderName += suffix
+	}
+
+	// Try our best to avoid path traversal attacks 2.0
+	parentWorkdir := "/var/www/"
+	workdir := path.Clean(path.Join(parentWorkdir, folderName))
+	if !strings.HasPrefix(workdir, parentWorkdir) || workdir == parentWorkdir {
+		log.Printf("Invalid folder name %s for repository\n", workdir)
+		http.Error(w, "Invalid folder name for repository", http.StatusBadRequest)
+		return
+	}
+
+	// Pull the repository
 	cmd := exec.Command("git", "pull")
 	cmd.Dir = workdir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Println("Failed pulling linuskmr/linu.sk:", string(output), err)
-		http.Error(w, "Failed to update repository", http.StatusInternalServerError)
+		log.Printf("Failed pulling repository %s: %s %s\n", workdir, string(output), err)
+		http.Error(w, "Failed to pull repository", http.StatusInternalServerError)
 		return
 	}
 
-	// Build website
+	// Build repository
 	cmd = exec.Command("make", "build")
 	cmd.Dir = workdir
 	output, err = cmd.CombinedOutput()
 	if err != nil {
-		log.Println("Failed building website linuskmr/linu.sk:", string(output), err)
-		http.Error(w, "Failed to build website", http.StatusInternalServerError)
+		log.Printf("Failed building repository %s: %s %s\n", workdir, string(output), err)
+		http.Error(w, "Failed to build repository", http.StatusInternalServerError)
 		return
 	}
 }
+
 
 // isSignatureValid checks whether the provided signature in the X-Hub-Signature-256 HTTP header matches the HMAC-SHA256 signature of the request body.
 //
@@ -110,4 +114,26 @@ func isSignatureValid(body []byte, requestHeaders http.Header) bool {
 
 	// Constant-time comparison to avoid timing attacks
 	return hmac.Equal(providedHmacBytes, computedBodyHmac)
+}
+
+
+func isValidRepositoryName(str string) bool {
+	// Only ASCII letters, digits, and '.' are allowed
+	// In Rust: s.chars().all(char::is_alphanumeric)
+	for chr := range str {
+		isAsciiLowercaseLetter := chr >= 'a' && chr <= 'z'
+		isAsciiUppercaseLetter := chr >= 'A' && chr <= 'Z'
+		isDigit := chr >= '0' && chr <= '9'
+		isDot := chr == '.'
+		if !isAsciiLowercaseLetter && !isAsciiUppercaseLetter && !isDigit && !isDot {
+			return false
+		}
+	}
+
+	hasPathTraversal := strings.Contains(str, "..")
+	if hasPathTraversal {
+		return false
+	}
+
+	return true
 }
