@@ -92,7 +92,6 @@ func Github(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-
 	// Build repository
 	cmd = exec.Command("make", "build")
 	cmd.Dir = workdir
@@ -103,7 +102,6 @@ func Github(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 }
-
 
 // isSignatureValid checks whether the provided signature in the X-Hub-Signature-256 HTTP header matches the HMAC-SHA256 signature of the request body.
 //
@@ -127,7 +125,6 @@ func isSignatureValid(body []byte, requestHeaders http.Header) bool {
 	// Constant-time comparison to avoid timing attacks
 	return hmac.Equal(providedHmacBytes, computedBodyHmac)
 }
-
 
 func isValidRepositoryName(str string) bool {
 	// Only ASCII letters, digits, and '.' are allowed
