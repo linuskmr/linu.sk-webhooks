@@ -50,7 +50,8 @@ func Github(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Do our best to avoid path traversal attacks (although signed from Github; you never know)
+	// Do our best to avoid path traversal attacks
+	// Requests are signed from GitHub using a secret (see `isSignatureValid`), but you never know
 	if !isValidRepositoryName(jsonBody.Repository.Name) {
 		log.Println("Invalid repository name:", jsonBody.Repository.Name)
 		http.Error(w, "Invalid repository name", http.StatusBadRequest)
@@ -58,12 +59,15 @@ func Github(w http.ResponseWriter, req *http.Request) {
 	}
 
 	folderName := jsonBody.Repository.Name
+	if folderName == "linu.sk" {
+		folderName = "www"
+	}
 	suffix := ".linu.sk"
 	if !strings.HasSuffix(folderName, suffix) {
 		folderName += suffix
 	}
 
-	// Do our best to avoid path traversal attacks 2.0 (from signed from Github; you never know)
+	// Do our best to avoid path traversal attacks (2.0)
 	parentWorkdir := "/var/www/"
 	workdir := path.Clean(path.Join(parentWorkdir, folderName))
 	if !strings.HasPrefix(workdir, parentWorkdir) || workdir == parentWorkdir {
